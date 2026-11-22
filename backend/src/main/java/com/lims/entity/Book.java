@@ -26,16 +26,23 @@ public class Book {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "publisher_id")
+    private Publisher publisher;
+
     public Long getId() { return id; }
     public String getIsbn() { return isbn; }
     public String getTitle() { return title; }
     public String getEdition() { return edition; }
     public Integer getPublicationYear() { return publicationYear; }
     public Category getCategory() { return category; }
+    public Publisher getPublisher() { return publisher; }
+
     public void setId(Long id) { this.id = id; }
     public void setIsbn(String isbn) { this.isbn = isbn; }
     public void setTitle(String title) { this.title = title; }
     public void setEdition(String edition) { this.edition = edition; }
     public void setPublicationYear(Integer publicationYear) { this.publicationYear = publicationYear; }
     public void setCategory(Category category) { this.category = category; }
+    public void setPublisher(Publisher publisher) { this.publisher = publisher; }
 }
