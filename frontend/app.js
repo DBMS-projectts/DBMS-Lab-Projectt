@@ -22,7 +22,7 @@ function renderBooks(books) {
     year.textContent = "Publication year: " + (book.publicationYear || "Not specified");
     const tag = document.createElement("span");
     tag.className = "tag";
-    tag.textContent = book.category?.name || "Library book";
+    tag.textContent = book.categoryName || "Library book";
     card.append(tag, title, isbn, year);
     list.append(card);
   });
