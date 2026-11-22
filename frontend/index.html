@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LIMS | Library Management</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">L</span><div><strong>LIMS</strong><small>Library Information Management</small></div></div>
+    <span class="status"><i></i> System interface</span>
+  </header>
+  <main class="container">
+    <section class="hero">
+      <div><p class="eyebrow">LIBRARY OPERATIONS</p><h1>Find your next<br><span>great read.</span></h1><p class="sub">Search the library catalogue by title or ISBN.</p></div>
+      <div class="hero-icon" aria-hidden="true">▤</div>
+    </section>
+    <section class="catalogue">
+      <div class="section-head"><div><p class="eyebrow">COLLECTION</p><h2>Book catalogue</h2></div><span id="result-count" class="count">Loading…</span></div>
+      <form id="search-form" class="search">
+        <span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="Search by book title or ISBN…" aria-label="Search books"><button>Search</button>
+      </form>
+      <p id="message" class="message" role="status">Connecting to the library API…</p>
+      <div id="book-list" class="book-grid"></div>
+    </section>
+  </main>
+  <footer>Library Information Management System · University DBMS Project</footer>
+  <script src="app.js"></script>
+</body>
+</html>
