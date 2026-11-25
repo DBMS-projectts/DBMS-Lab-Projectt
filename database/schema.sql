@@ -70,7 +70,7 @@ CREATE TABLE books (
   isbn VARCHAR(20) NOT NULL UNIQUE,
   title VARCHAR(255) NOT NULL,
   edition VARCHAR(50),
-  publication_year SMALLINT,
+  publication_year INT,
   CONSTRAINT fk_books_publisher FOREIGN KEY (publisher_id) REFERENCES publishers(publisher_id),
   CONSTRAINT fk_books_category FOREIGN KEY (category_id) REFERENCES categories(category_id),
   CONSTRAINT chk_publication_year CHECK (publication_year IS NULL OR publication_year BETWEEN 1400 AND 2100)
