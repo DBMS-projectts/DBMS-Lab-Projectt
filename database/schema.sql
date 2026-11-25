@@ -26,9 +26,10 @@ CREATE TABLE member_types (
   type_name VARCHAR(50) NOT NULL UNIQUE,
   max_books INT NOT NULL,
   borrowing_days INT NOT NULL,
-  fine_per_day DECIMAL(8,2) NOT NULL DEFAULT 0,
+  borrowing_months INT NOT NULL DEFAULT 0,
+  fine_per_day DECIMAL(8,2) NOT NULL DEFAULT 1.00,
   CONSTRAINT chk_member_max_books CHECK (max_books > 0),
-  CONSTRAINT chk_member_borrowing_days CHECK (borrowing_days > 0),
+  CONSTRAINT chk_member_borrowing_period CHECK (borrowing_days >= 0 AND borrowing_months >= 0 AND (borrowing_days > 0 OR borrowing_months > 0)),
   CONSTRAINT chk_member_fine CHECK (fine_per_day >= 0)
 );
 
@@ -103,12 +104,14 @@ CREATE TABLE borrowings (
   issue_date DATE NOT NULL,
   due_date DATE NOT NULL,
   return_date DATE,
+  renewal_count INT NOT NULL DEFAULT 0,
   borrowing_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
   CONSTRAINT fk_borrowings_member FOREIGN KEY (member_id) REFERENCES members(member_id),
   CONSTRAINT fk_borrowings_copy FOREIGN KEY (copy_id) REFERENCES book_copies(copy_id),
   CONSTRAINT fk_borrowings_issuer FOREIGN KEY (issued_by) REFERENCES users(user_id),
   CONSTRAINT chk_borrowing_dates CHECK (due_date >= issue_date),
   CONSTRAINT chk_return_date CHECK (return_date IS NULL OR return_date >= issue_date),
+  CONSTRAINT chk_renewal_count CHECK (renewal_count BETWEEN 0 AND 2),
   CONSTRAINT chk_borrowing_status CHECK (borrowing_status IN ('ACTIVE','RETURNED','OVERDUE'))
 );
 
