@@ -11,9 +11,11 @@ BEGIN
   DECLARE v_member_status VARCHAR(20);
   DECLARE v_max_books INT;
   DECLARE v_loan_days INT;
+  DECLARE v_loan_months INT;
   DECLARE v_active_count INT;
   DECLARE v_copy_status VARCHAR(20);
   DECLARE v_borrowing_id BIGINT;
+  DECLARE v_due_date DATE;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -23,8 +25,8 @@ BEGIN
 
   START TRANSACTION;
 
-  SELECT m.membership_status, mt.max_books, mt.borrowing_days
-    INTO v_member_status, v_max_books, v_loan_days
+  SELECT m.membership_status, mt.max_books, mt.borrowing_days, mt.borrowing_months
+    INTO v_member_status, v_max_books, v_loan_days, v_loan_months
   FROM members m
   JOIN member_types mt ON mt.member_type_id = m.member_type_id
   WHERE m.member_id = p_member_id
@@ -52,16 +54,76 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Member has reached the borrowing limit';
   END IF;
 
+  IF v_loan_months > 0 THEN
+    SET v_due_date = DATE_ADD(CURRENT_DATE, INTERVAL v_loan_months MONTH);
+  ELSE
+    SET v_due_date = DATE_ADD(CURRENT_DATE, INTERVAL v_loan_days DAY);
+  END IF;
+
   INSERT INTO borrowings(member_id, copy_id, issued_by, issue_date, due_date, borrowing_status)
-  VALUES (p_member_id, p_copy_id, p_issued_by, CURRENT_DATE,
-          DATE_ADD(CURRENT_DATE, INTERVAL v_loan_days DAY), 'ACTIVE');
+  VALUES (p_member_id, p_copy_id, p_issued_by, CURRENT_DATE, v_due_date, 'ACTIVE');
 
   SET v_borrowing_id = LAST_INSERT_ID();
 
   UPDATE book_copies SET copy_status = 'BORROWED' WHERE copy_id = p_copy_id;
 
   COMMIT;
-  SELECT v_borrowing_id AS borrowing_id;
+  SELECT v_borrowing_id AS borrowing_id, v_due_date AS due_date;
+END$$
+
+CREATE PROCEDURE sp_renew_book(IN p_borrowing_id BIGINT)
+BEGIN
+  DECLARE v_status VARCHAR(20);
+  DECLARE v_due_date DATE;
+  DECLARE v_renewal_count INT;
+  DECLARE v_loan_days INT;
+  DECLARE v_loan_months INT;
+  DECLARE v_new_due_date DATE;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SELECT b.borrowing_status, b.due_date, b.renewal_count,
+         mt.borrowing_days, mt.borrowing_months
+    INTO v_status, v_due_date, v_renewal_count, v_loan_days, v_loan_months
+  FROM borrowings b
+  JOIN members m ON m.member_id = b.member_id
+  JOIN member_types mt ON mt.member_type_id = m.member_type_id
+  WHERE b.borrowing_id = p_borrowing_id
+  FOR UPDATE;
+
+  IF v_status <> 'ACTIVE' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only active borrowings can be renewed';
+  END IF;
+
+  IF v_due_date < CURRENT_DATE THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Overdue books cannot be renewed';
+  END IF;
+
+  IF v_renewal_count >= 2 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Maximum two renewals allowed';
+  END IF;
+
+  IF v_loan_months > 0 THEN
+    SET v_new_due_date = DATE_ADD(v_due_date, INTERVAL v_loan_months MONTH);
+  ELSE
+    SET v_new_due_date = DATE_ADD(v_due_date, INTERVAL v_loan_days DAY);
+  END IF;
+
+  UPDATE borrowings
+  SET due_date = v_new_due_date,
+      renewal_count = renewal_count + 1
+  WHERE borrowing_id = p_borrowing_id;
+
+  COMMIT;
+  SELECT p_borrowing_id AS borrowing_id,
+         v_new_due_date AS due_date,
+         v_renewal_count + 1 AS renewal_count;
 END$$
 
 CREATE PROCEDURE sp_return_book(IN p_borrowing_id BIGINT)
