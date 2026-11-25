@@ -3,10 +3,11 @@ USE lims_db;
 INSERT INTO roles(role_name) VALUES
 ('ADMIN'), ('LIBRARIAN'), ('MEMBER');
 
-INSERT INTO member_types(type_name, max_books, borrowing_days, fine_per_day) VALUES
-('STUDENT', 3, 14, 5.00),
-('TEACHER', 5, 30, 5.00),
-('GENERAL', 2, 14, 5.00);
+INSERT INTO member_types(type_name, max_books, borrowing_days, borrowing_months, fine_per_day) VALUES
+('STUDENT', 4, 15, 0, 1.00),
+('ADMIN_STAFF', 4, 30, 0, 1.00),
+('TEACHER', 1, 0, 6, 1.00),
+('GENERAL', 2, 14, 0, 1.00);
 
 INSERT INTO categories(category_name, description) VALUES
 ('Computer Science', 'Computing, software and information technology'),
