@@ -36,6 +36,11 @@ public class BorrowingController {
             request.memberId(), request.copyId(), request.issuedBy());
     }
 
+    @PostMapping("/{id}/renew")
+    public Map<String, Object> renewBook(@PathVariable @Positive Long id) {
+        return jdbc.queryForMap("CALL sp_renew_book(?)", id);
+    }
+
     @PostMapping("/{id}/return")
     public Map<String, String> returnBook(@PathVariable @Positive Long id) {
         jdbc.execute("CALL sp_return_book(" + id + ")");
