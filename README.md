@@ -1,37 +1,32 @@
 # Library Information Management System (LIMS)
 
-A full-stack Library Information Management System built as a university Database Management Systems project.
+A university DBMS project built with MySQL 8, Java 17, Spring Boot, and a responsive HTML/CSS/JavaScript frontend.
 
-## Planned technology stack
+## Modules
 
-- **Database:** MySQL
-- **Backend:** Java 17 + Spring Boot (Maven)
-- **Frontend:** HTML, CSS, JavaScript
-- **API testing:** Postman
-- **Version control:** Git and GitHub
+- Book catalogue: search, create, update and delete APIs
+- Categories and publishers: lookup APIs
+- Borrowing: issue and return through transactional stored procedures
+- Reservations: create, list and cancel
+- Fines and payments: balance view and payment procedure
 
-## Planned modules
+## Technology
 
-- Authentication and role-based authorization
-- Book, book-copy, author, publisher, and category management
-- Member and membership-type management
-- Borrowing and returning
-- Book reservations
-- Fine and payment management
-- Inventory and reports
+- MySQL 8
+- Java 17 and Spring Boot 3 (Maven)
+- HTML, CSS and JavaScript
+- Postman and MySQL Workbench
+- GitHub Actions for backend verification
 
-## Database concepts demonstrated
+## Quick start
 
-Relational modeling, primary and foreign keys, constraints, normalization, joins, subqueries, views, stored functions, stored procedures, triggers, and transactions.
+1. Run the SQL scripts in `database/` in this order: `schema.sql`, `seed.sql`, `views.sql`, `procedures.sql`, `triggers.sql`.
+2. Configure `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` in your environment.
+3. Run `mvn clean verify` and `mvn spring-boot:run` from `backend/`.
+4. Serve `frontend/` with a local static server on port 5500.
 
-## Project status
+See [Project Status and API guide](docs/PROJECT_STATUS.md) for endpoints and limitations.
 
-**Phase 0 — Repository initialized.** Database schema, backend, frontend, tests, and documentation will be added incrementally and verified as the project is developed.
+## Security notice
 
-## Team
-
-Three-member group project. Add team member names and GitHub usernames here once confirmed.
-
-## Running the project
-
-Setup and run instructions will be added after the MySQL schema and Spring Boot application are implemented.
+The current backend security configuration permits requests for local academic development. Authentication and role-based authorization are not implemented. Do not deploy this configuration publicly or use real personal data.
