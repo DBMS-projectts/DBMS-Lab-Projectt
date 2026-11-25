@@ -1,6 +1,8 @@
 package com.lims.controller;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +19,11 @@ public class BorrowingController {
         this.jdbc = jdbc;
     }
 
-    public record IssueRequest(@NotNull Long memberId, @NotNull Long copyId, @NotNull Long issuedBy) {}
+    public record IssueRequest(
+        @NotNull @Positive Long memberId,
+        @NotNull @Positive Long copyId,
+        @NotNull @Positive Long issuedBy
+    ) {}
 
     @GetMapping
     public List<Map<String, Object>> getActiveBorrowings() {
@@ -25,13 +31,13 @@ public class BorrowingController {
     }
 
     @PostMapping("/issue")
-    public Map<String, Object> issueBook(@RequestBody IssueRequest request) {
+    public Map<String, Object> issueBook(@Valid @RequestBody IssueRequest request) {
         return jdbc.queryForMap("CALL sp_issue_book(?, ?, ?)",
             request.memberId(), request.copyId(), request.issuedBy());
     }
 
     @PostMapping("/{id}/return")
-    public Map<String, String> returnBook(@PathVariable Long id) {
+    public Map<String, String> returnBook(@PathVariable @Positive Long id) {
         jdbc.execute("CALL sp_return_book(" + id + ")");
         return Map.of("message", "Book returned successfully");
     }
