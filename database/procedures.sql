@@ -1,6 +1,11 @@
 USE lims_db;
 
-DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_issue_book;
+DROP PROCEDURE IF EXISTS sp_renew_book;
+DROP PROCEDURE IF EXISTS sp_return_book;
+DROP PROCEDURE IF EXISTS sp_record_fine_payment;
+
+DELIMITER $
 
 CREATE PROCEDURE sp_issue_book(
   IN p_member_id BIGINT,
