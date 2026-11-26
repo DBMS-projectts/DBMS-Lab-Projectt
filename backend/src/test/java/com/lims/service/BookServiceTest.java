@@ -5,6 +5,7 @@ import com.lims.dto.BookResponse;
 import com.lims.entity.Book;
 import com.lims.entity.Category;
 import com.lims.entity.Publisher;
+import com.lims.repository.AuthorRepository;
 import com.lims.repository.BookRepository;
 import com.lims.repository.CategoryRepository;
 import com.lims.repository.PublisherRepository;
@@ -28,6 +29,7 @@ class BookServiceTest {
     @Mock private BookRepository books;
     @Mock private CategoryRepository categories;
     @Mock private PublisherRepository publishers;
+    @Mock private AuthorRepository authors;
 
     @InjectMocks private BookService service;
 
