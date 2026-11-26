@@ -1,5 +1,10 @@
 package com.lims.controller;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +22,10 @@ public class FineController {
         this.jdbc = jdbc;
     }
 
-    public record PaymentRequest(BigDecimal amount, String method) {}
+    public record PaymentRequest(
+        @NotNull @DecimalMin("0.01") BigDecimal amount,
+        @NotBlank String method
+    ) {}
 
     @GetMapping
     public List<Map<String, Object>> getFineBalances() {
@@ -25,7 +33,7 @@ public class FineController {
     }
 
     @PostMapping("/{id}/payments")
-    public Map<String, String> recordPayment(@PathVariable Long id, @RequestBody PaymentRequest request) {
+    public Map<String, String> recordPayment(@PathVariable @Positive Long id, @Valid @RequestBody PaymentRequest request) {
         if (request.amount() == null || request.method() == null || request.method().isBlank()) {
             throw new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_REQUEST, "Amount and payment method are required");
