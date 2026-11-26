@@ -1,5 +1,10 @@
 USE lims_db;
 
+-- Make this script safe to re-run during development.
+DROP TRIGGER IF EXISTS trg_borrowings_before_insert;
+DROP TRIGGER IF EXISTS trg_borrowings_after_insert;
+DROP TRIGGER IF EXISTS trg_borrowings_after_update;
+
 DELIMITER $$
 
 CREATE TRIGGER trg_borrowings_before_insert
@@ -7,15 +12,18 @@ BEFORE INSERT ON borrowings
 FOR EACH ROW
 BEGIN
   DECLARE v_copy_status VARCHAR(20);
+  DECLARE v_condition_status VARCHAR(20);
   DECLARE v_member_status VARCHAR(20);
   DECLARE v_max_books INT;
   DECLARE v_active_count INT;
 
-  SELECT copy_status INTO v_copy_status
-  FROM book_copies WHERE copy_id = NEW.copy_id;
+  SELECT copy_status, condition_status
+    INTO v_copy_status, v_condition_status
+  FROM book_copies
+  WHERE copy_id = NEW.copy_id;
 
-  IF v_copy_status <> 'AVAILABLE' THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Copy is not available';
+  IF v_copy_status <> 'AVAILABLE' OR v_condition_status = 'DAMAGED' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Book copy is not available for borrowing';
   END IF;
 
   SELECT m.membership_status, mt.max_books
@@ -42,7 +50,8 @@ CREATE TRIGGER trg_borrowings_after_insert
 AFTER INSERT ON borrowings
 FOR EACH ROW
 BEGIN
-  UPDATE book_copies SET copy_status = 'BORROWED'
+  UPDATE book_copies
+  SET copy_status = 'BORROWED'
   WHERE copy_id = NEW.copy_id;
 END$$
 
@@ -53,8 +62,15 @@ BEGIN
   DECLARE v_fine_per_day DECIMAL(8,2);
   DECLARE v_days_overdue INT;
 
-  IF OLD.return_date IS NULL AND NEW.return_date IS NOT NULL THEN
-    UPDATE book_copies SET copy_status = 'AVAILABLE'
+  IF OLD.return_date IS NULL
+     AND NEW.return_date IS NOT NULL
+     AND NEW.borrowing_status = 'RETURNED' THEN
+
+    UPDATE book_copies
+    SET copy_status = CASE
+      WHEN condition_status = 'DAMAGED' THEN 'DAMAGED'
+      ELSE 'AVAILABLE'
+    END
     WHERE copy_id = NEW.copy_id;
 
     SELECT mt.fine_per_day INTO v_fine_per_day
