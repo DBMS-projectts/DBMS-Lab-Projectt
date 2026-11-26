@@ -43,7 +43,7 @@ public class BorrowingController {
 
     @PostMapping("/{id}/return")
     public Map<String, String> returnBook(@PathVariable @Positive Long id) {
-        jdbc.execute("CALL sp_return_book(" + id + ")");
+        jdbc.update("CALL sp_return_book(?)", id);
         return Map.of("message", "Book returned successfully");
     }
 }
