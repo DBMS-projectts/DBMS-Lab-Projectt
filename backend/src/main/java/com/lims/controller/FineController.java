@@ -1,5 +1,6 @@
 package com.lims.controller;
 
+import com.lims.service.FineService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -17,14 +18,21 @@ import java.util.Map;
 @CrossOrigin(origins = {"http://localhost:5500", "http://127.0.0.1:5500"})
 public class FineController {
     private final JdbcTemplate jdbc;
+    private final FineService fineService;
 
-    public FineController(JdbcTemplate jdbc) {
+    public FineController(JdbcTemplate jdbc, FineService fineService) {
         this.jdbc = jdbc;
+        this.fineService = fineService;
     }
 
     public record PaymentRequest(
         @NotNull @DecimalMin("0.01") BigDecimal amount,
         @NotBlank String method
+    ) {}
+
+    public record WaiveRequest(
+        @DecimalMin("0.01") BigDecimal amount,
+        String reason
     ) {}
 
     @GetMapping
@@ -40,5 +48,21 @@ public class FineController {
         }
         jdbc.update("CALL sp_record_fine_payment(?, ?, ?)", id, request.amount(), request.method());
         return Map.of("message", "Payment recorded");
+    }
+
+    @PostMapping("/{id}/waive")
+    public Map<String, Object> waiveFine(@PathVariable @Positive Long id, @RequestBody(required = false) WaiveRequest request) {
+        BigDecimal amount = request == null ? null : request.amount();
+        return fineService.waiveFine(id, amount);
+    }
+
+    @GetMapping("/{id}/payments")
+    public List<Map<String, Object>> getPayments(@PathVariable @Positive Long id) {
+        return fineService.payments(id);
+    }
+
+    @GetMapping("/member/{memberId}")
+    public Map<String, Object> getMemberFines(@PathVariable @Positive Long memberId) {
+        return fineService.finesForMember(memberId);
     }
 }
