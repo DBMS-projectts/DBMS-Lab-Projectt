@@ -28,6 +28,12 @@ BEGIN
     RESIGNAL;
   END;
 
+  DECLARE EXIT HANDLER FOR NOT FOUND
+  BEGIN
+    ROLLBACK;
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Member or book copy not found';
+  END;
+
   START TRANSACTION;
 
   SELECT m.membership_status, mt.max_books, mt.borrowing_days, mt.borrowing_months
@@ -91,6 +97,12 @@ BEGIN
     RESIGNAL;
   END;
 
+  DECLARE EXIT HANDLER FOR NOT FOUND
+  BEGIN
+    ROLLBACK;
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Borrowing record not found';
+  END;
+
   START TRANSACTION;
 
   SELECT b.borrowing_status, b.due_date, b.renewal_count,
@@ -141,6 +153,12 @@ BEGIN
     RESIGNAL;
   END;
 
+  DECLARE EXIT HANDLER FOR NOT FOUND
+  BEGIN
+    ROLLBACK;
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Borrowing record not found';
+  END;
+
   START TRANSACTION;
 
   SELECT borrowing_status INTO v_status
@@ -177,6 +195,12 @@ BEGIN
   BEGIN
     ROLLBACK;
     RESIGNAL;
+  END;
+
+  DECLARE EXIT HANDLER FOR NOT FOUND
+  BEGIN
+    ROLLBACK;
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fine record not found';
   END;
 
   START TRANSACTION;
