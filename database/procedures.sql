@@ -5,7 +5,7 @@ DROP PROCEDURE IF EXISTS sp_renew_book;
 DROP PROCEDURE IF EXISTS sp_return_book;
 DROP PROCEDURE IF EXISTS sp_record_fine_payment;
 
-DELIMITER $
+DELIMITER $$
 
 CREATE PROCEDURE sp_issue_book(
   IN p_member_id BIGINT,
@@ -70,7 +70,7 @@ BEGIN
 
   SET v_borrowing_id = LAST_INSERT_ID();
 
-  UPDATE book_copies SET copy_status = 'BORROWED' WHERE copy_id = p_copy_id;
+  -- trg_borrowings_after_insert updates the physical copy status.
 
   COMMIT;
   SELECT v_borrowing_id AS borrowing_id, v_due_date AS due_date;
@@ -134,6 +134,7 @@ END$$
 CREATE PROCEDURE sp_return_book(IN p_borrowing_id BIGINT)
 BEGIN
   DECLARE v_status VARCHAR(20);
+
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
     ROLLBACK;
@@ -156,10 +157,7 @@ BEGIN
       borrowing_status = 'RETURNED'
   WHERE borrowing_id = p_borrowing_id;
 
-  UPDATE book_copies bc
-  JOIN borrowings b ON b.copy_id = bc.copy_id
-  SET bc.copy_status = 'AVAILABLE'
-  WHERE b.borrowing_id = p_borrowing_id;
+  -- trg_borrowings_after_update restores copy status and assesses overdue fine.
 
   COMMIT;
 END$$
@@ -173,6 +171,7 @@ BEGIN
   DECLARE v_fine_amount DECIMAL(10,2);
   DECLARE v_paid DECIMAL(10,2);
   DECLARE v_remaining DECIMAL(10,2);
+  DECLARE v_fine_status VARCHAR(20);
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -182,21 +181,35 @@ BEGIN
 
   START TRANSACTION;
 
-  SELECT fine_amount INTO v_fine_amount
-  FROM fines WHERE fine_id = p_fine_id
+  SELECT fine_amount, fine_status
+    INTO v_fine_amount, v_fine_status
+  FROM fines
+  WHERE fine_id = p_fine_id
   FOR UPDATE;
+
+  IF v_fine_status IN ('PAID','WAIVED') THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This fine cannot accept further payments';
+  END IF;
+
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment amount must be greater than zero';
+  END IF;
+
+  IF p_method IS NULL OR CHAR_LENGTH(TRIM(p_method)) = 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment method is required';
+  END IF;
 
   SELECT COALESCE(SUM(amount_paid),0) INTO v_paid
   FROM payments WHERE fine_id = p_fine_id;
 
   SET v_remaining = v_fine_amount - v_paid;
 
-  IF p_amount <= 0 OR p_amount > v_remaining THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment amount is invalid';
+  IF p_amount > v_remaining THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment amount exceeds the remaining fine';
   END IF;
 
   INSERT INTO payments(fine_id, amount_paid, payment_method)
-  VALUES (p_fine_id, p_amount, p_method);
+  VALUES (p_fine_id, p_amount, TRIM(p_method));
 
   SET v_paid = v_paid + p_amount;
 
