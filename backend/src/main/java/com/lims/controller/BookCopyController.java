@@ -40,7 +40,7 @@ public class BookCopyController {
 
     @GetMapping("/{id}")
     public CopyResponse getCopy(@PathVariable Long id) {
-        return toResponse(getCopy(id));
+        return toResponse(findCopy(id));
     }
 
     @GetMapping("/by-accession/{accessionNumber}")
@@ -83,7 +83,7 @@ public class BookCopyController {
         if (!STAFF_STATUSES.contains(status)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown copy status: " + status);
         }
-        BookCopy copy = getCopy(id);
+        BookCopy copy = findCopy(id);
         copy.setCopyStatus(status);
         return toResponse(copies.save(copy));
     }
@@ -95,12 +95,12 @@ public class BookCopyController {
         if (!CONDITIONS.contains(condition)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown condition: " + condition);
         }
-        BookCopy copy = getCopy(id);
+        BookCopy copy = findCopy(id);
         copy.setConditionStatus(condition);
         return toResponse(copies.save(copy));
     }
 
-    private BookCopy getCopy(Long id) {
+    private BookCopy findCopy(Long id) {
         return copies.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Copy not found"));
     }

@@ -36,12 +36,12 @@ public class AuthorController {
 
     @GetMapping("/{id}")
     public AuthorResponse getAuthor(@PathVariable Long id) {
-        return toResponse(getAuthor(id));
+        return toResponse(findAuthor(id));
     }
 
     @GetMapping("/{id}/books")
     public List<BookSummaryResponse> getAuthorBooks(@PathVariable Long id) {
-        getAuthor(id);
+        findAuthor(id);
         return books.findDistinctByAuthors_Id(id).stream()
             .map(book -> new BookSummaryResponse(book.getId(), book.getTitle(), book.getIsbn()))
             .toList();
@@ -57,7 +57,7 @@ public class AuthorController {
 
     @PutMapping("/{id}")
     public AuthorResponse updateAuthor(@PathVariable Long id, @Valid @RequestBody AuthorRequest request) {
-        Author author = getAuthor(id);
+        Author author = findAuthor(id);
         applyRequest(author, request);
         return toResponse(authors.save(author));
     }
@@ -65,7 +65,7 @@ public class AuthorController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAuthor(@PathVariable Long id) {
-        Author author = getAuthor(id);
+        Author author = findAuthor(id);
         try {
             authors.delete(author);
             authors.flush();
@@ -75,7 +75,7 @@ public class AuthorController {
         }
     }
 
-    private Author getAuthor(Long id) {
+    private Author findAuthor(Long id) {
         return authors.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Author not found"));
     }
