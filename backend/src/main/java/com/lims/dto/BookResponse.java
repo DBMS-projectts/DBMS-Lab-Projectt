@@ -1,5 +1,7 @@
 package com.lims.dto;
 
+import java.util.List;
+
 public record BookResponse(
     Long id,
     String isbn,
@@ -9,6 +11,10 @@ public record BookResponse(
     Long categoryId,
     String categoryName,
     Long publisherId,
-    String publisherName
+    String publisherName,
+    List<AuthorSummary> authors,
+    String coverImageUrl
 ) {
+    public record AuthorSummary(Long id, String name) {
+    }
 }

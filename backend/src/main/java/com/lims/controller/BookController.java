@@ -4,6 +4,8 @@ import com.lims.dto.BookRequest;
 import com.lims.dto.BookResponse;
 import com.lims.service.BookService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,8 +22,24 @@ public class BookController {
     }
 
     @GetMapping
-    public List<BookResponse> getBooks(@RequestParam(required = false) String search) {
-        return bookService.findAll(search);
+    public List<BookResponse> getBooks(@RequestParam(required = false) String search,
+                                       @RequestParam(required = false) String author,
+                                       @RequestParam(required = false) String isbn,
+                                       @RequestParam(required = false) Long categoryId,
+                                       @RequestParam(required = false) Long publisherId,
+                                       @RequestParam(required = false, defaultValue = "false") boolean availableOnly) {
+        return bookService.findAll(search, author, isbn, categoryId, publisherId, availableOnly);
+    }
+
+    @GetMapping("/search")
+    public Page<BookResponse> searchBooks(@RequestParam(required = false) String search,
+                                          @RequestParam(required = false) String author,
+                                          @RequestParam(required = false) String isbn,
+                                          @RequestParam(required = false) Long categoryId,
+                                          @RequestParam(required = false) Long publisherId,
+                                          @RequestParam(required = false, defaultValue = "false") boolean availableOnly,
+                                          Pageable pageable) {
+        return bookService.search(search, author, isbn, categoryId, publisherId, availableOnly, pageable);
     }
 
     @GetMapping("/{id}")
