@@ -161,7 +161,7 @@ Created by `database/migrations/002_completion_features.sql`:
 |---|---|---|---|
 | admin@lims.local | admin123 | ADMIN | Full access incl. audit log |
 | librarian@lims.local | libra123 | LIBRARIAN | Staff operations |
-| student@lims.local | student123 | STUDENT | Has a STUDENT membership |
+| student@ugrad.iiuc.ac.bd | student123 | STUDENT | Has a STUDENT membership |
 
 Change or delete these accounts before any real use. The older seed user
 `admin@example.com` still has the placeholder hash from `seed.sql` and
