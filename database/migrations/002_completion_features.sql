@@ -101,7 +101,7 @@ WHERE br.return_date IS NULL
 --    before any real use). Passwords are BCrypt hashes:
 --      admin@lims.local     / admin123    (ADMIN)
 --      librarian@lims.local / libra123    (LIBRARIAN)
---      student@lims.local   / student123  (STUDENT role + STUDENT member)
+--      student@ugrad.iiuc.ac.bd   / student123  (STUDENT role + STUDENT member)
 INSERT INTO users(role_id, full_name, email, password_hash, phone)
 SELECT r.role_id, 'Demo Administrator', 'admin@lims.local',
        '$2b$12$KNwcO4CC2qDp0X7NePpPEeW5/qB9vgv.DTXyePPQQ2X2jN4yFrRQ2', '01000000001'
@@ -117,15 +117,15 @@ WHERE r.role_name = 'LIBRARIAN'
   AND NOT EXISTS (SELECT 1 FROM users u WHERE u.email = 'librarian@lims.local');
 
 INSERT INTO users(role_id, full_name, email, password_hash, phone)
-SELECT r.role_id, 'Demo Student', 'student@lims.local',
+SELECT r.role_id, 'Demo Student', 'student@ugrad.iiuc.ac.bd',
        '$2b$12$MH.dT2CP7AtOd4wVjfvrwO8/v85dga8XraIHlMDQarNCNN4QOONYe', '01000000003'
 FROM roles r
 WHERE r.role_name = 'STUDENT'
-  AND NOT EXISTS (SELECT 1 FROM users u WHERE u.email = 'student@lims.local');
+  AND NOT EXISTS (SELECT 1 FROM users u WHERE u.email = 'student@ugrad.iiuc.ac.bd');
 
 INSERT INTO members(user_id, member_type_id, join_date)
 SELECT u.user_id, mt.member_type_id, CURRENT_DATE
 FROM users u, member_types mt
-WHERE u.email = 'student@lims.local'
+WHERE u.email = 'student@ugrad.iiuc.ac.bd'
   AND mt.type_name = 'STUDENT'
   AND NOT EXISTS (SELECT 1 FROM members m WHERE m.user_id = u.user_id);
