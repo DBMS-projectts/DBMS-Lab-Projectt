@@ -51,6 +51,7 @@ public class SecurityConfig {
 
                 // Personal history and profile endpoints resolve the authenticated user.
                 .requestMatchers(HttpMethod.GET, "/api/members/my-history").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/reservations/my").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/auth/me", "/api/auth/profile").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/auth/profile").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/auth/change-password").authenticated()
