@@ -2,10 +2,11 @@ package com.lims.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
@@ -22,7 +23,7 @@ public class ReservationController {
         this.jdbc = jdbc;
     }
 
-    public record ReservationRequest(@NotNull Long memberId, @NotNull Long bookId) {}
+    public record ReservationRequest(Long memberId, @NotNull Long bookId) {}
 
     @GetMapping
     public List<Map<String, Object>> getReservations() {
@@ -38,13 +39,28 @@ public class ReservationController {
     }
 
     @PostMapping
-    public Map<String, Object> createReservation(@Valid @RequestBody ReservationRequest request) {
+    public Map<String, Object> createReservation(@Valid @RequestBody ReservationRequest request,
+                                                  Authentication authentication) {
+        boolean staff = isStaff(authentication);
+        Long memberId;
+        if (staff) {
+            if (request.memberId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "memberId is required for staff-created reservations");
+            }
+            memberId = request.memberId();
+        } else {
+            memberId = currentMemberId(authentication);
+            if (request.memberId() != null && !request.memberId().equals(memberId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only reserve for your own account");
+            }
+        }
+
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(connection -> {
             PreparedStatement statement = connection.prepareStatement(
                 "INSERT INTO reservations(member_id, book_id) VALUES (?, ?)",
                 Statement.RETURN_GENERATED_KEYS);
-            statement.setLong(1, request.memberId());
+            statement.setLong(1, memberId);
             statement.setLong(2, request.bookId());
             return statement;
         }, keyHolder);
@@ -52,14 +68,23 @@ public class ReservationController {
     }
 
     @PostMapping("/{id}/cancel")
-    public Map<String, String> cancelReservation(@PathVariable Long id) {
-        int changed = jdbc.update("""
-            UPDATE reservations SET reservation_status = 'CANCELLED'
-            WHERE reservation_id = ? AND reservation_status = 'PENDING'
-            """, id);
+    public Map<String, String> cancelReservation(@PathVariable Long id, Authentication authentication) {
+        boolean staff = isStaff(authentication);
+        int changed;
+        if (staff) {
+            changed = jdbc.update("""
+                UPDATE reservations SET reservation_status = 'CANCELLED'
+                WHERE reservation_id = ? AND reservation_status = 'PENDING'
+                """, id);
+        } else {
+            Long memberId = currentMemberId(authentication);
+            changed = jdbc.update("""
+                UPDATE reservations SET reservation_status = 'CANCELLED'
+                WHERE reservation_id = ? AND member_id = ? AND reservation_status = 'PENDING'
+                """, id, memberId);
+        }
         if (changed == 0) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.NOT_FOUND, "Pending reservation not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pending reservation not found");
         }
         return Map.of("message", "Reservation cancelled");
     }
@@ -92,8 +117,7 @@ public class ReservationController {
             WHERE reservation_id = ? AND reservation_status = 'PENDING'
             """, id);
         if (changed == 0) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.NOT_FOUND, "Pending reservation not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pending reservation not found");
         }
         return Map.of("message", "Reservation fulfilled");
     }
@@ -109,11 +133,6 @@ public class ReservationController {
         return Map.of("expired", changed, "message", "Expired stale pending reservations");
     }
 
-    /**
-     * Ready-for-pickup list: pending reservations whose book currently has
-     * at least one available copy. This is the notify-when-available list
-     * staff work from (no email/SMS is sent by the system).
-     */
     @GetMapping("/ready")
     public List<Map<String, Object>> getReadyReservations() {
         return jdbc.queryForList("""
@@ -127,5 +146,21 @@ public class ReservationController {
             WHERE r.reservation_status = 'PENDING' AND ab.available_copies > 0
             ORDER BY r.reservation_date ASC
             """);
+    }
+
+    private boolean isStaff(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+            .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN")
+                || authority.getAuthority().equals("ROLE_LIBRARIAN"));
+    }
+
+    private Long currentMemberId(Authentication authentication) {
+        List<Long> ids = jdbc.query(
+            "SELECT member_id FROM members m JOIN users u ON u.user_id = m.user_id WHERE u.email = ?",
+            (rs, rowNum) -> rs.getLong("member_id"), authentication.getName());
+        if (ids.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This account has no library membership");
+        }
+        return ids.get(0);
     }
 }
