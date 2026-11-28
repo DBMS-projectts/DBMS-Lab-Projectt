@@ -64,7 +64,7 @@ public class AiService {
 
     public AiService(JdbcTemplate jdbc, BookService books, ObjectMapper mapper,
                      @Value("${ai.api-key:}") String apiKey,
-                     @Value("${ai.model:claude-haiku-5-5}") String model) {
+                     @Value("${ai.model:gemini-3.5-flash-lite}") String model) {
         this.jdbc = jdbc;
         this.books = books;
         this.mapper = mapper;
@@ -240,23 +240,24 @@ public class AiService {
     private String callModel(String system, String user, int maxTokens) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "AI assistant is not configured (set the AI_API_KEY environment variable).");
+                "AI assistant is not configured (set the GEMINI_API_KEY environment variable).");
         }
         Map<String, Object> body = Map.of(
-            "model", model,
-            "max_tokens", maxTokens,
-            "system", system,
-            "messages", List.of(Map.of("role", "user", "content", user)));
+            "systemInstruction", Map.of("parts", List.of(Map.of("text", system))),
+            "contents", List.of(Map.of(
+                "role", "user",
+                "parts", List.of(Map.of("text", user)))),
+            "generationConfig", Map.of("maxOutputTokens", maxTokens));
         try {
             JsonNode response = http.post()
-                .uri("https://api.anthropic.com/v1/messages")
-                .header("x-api-key", apiKey)
-                .header("anthropic-version", "2023-06-01")
+                .uri("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent")
+                .header("x-goog-api-key", apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
                 .body(JsonNode.class);
-            String text = response == null ? "" : response.path("content").path(0).path("text").asText("");
+            String text = response == null ? "" : response.path("candidates").path(0)
+                .path("content").path("parts").path(0).path("text").asText("");
             if (text.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI returned an empty answer");
             }
