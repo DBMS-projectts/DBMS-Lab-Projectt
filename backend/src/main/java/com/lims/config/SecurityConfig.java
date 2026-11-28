@@ -65,7 +65,7 @@ public class SecurityConfig {
 
                 // Global circulation, fine, and reservation views expose member data.
                 .requestMatchers(HttpMethod.GET, "/api/borrowings").hasAnyRole(STAFF)
-                .requestMatchers(HttpMethod.GET, "/api/fines").hasAnyRole(STAFF)
+                .requestMatchers(HttpMethod.GET, "/api/fines", "/api/fines/member/**").hasAnyRole(STAFF)
                 .requestMatchers(HttpMethod.GET, "/api/fines/*/payments").hasAnyRole(STAFF)
                 .requestMatchers(HttpMethod.GET, "/api/reservations",
                     "/api/reservations/queue/**", "/api/reservations/ready").hasAnyRole(STAFF)
