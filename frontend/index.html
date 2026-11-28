@@ -52,7 +52,14 @@
         <label>Publication year<input name="publicationYear" type="number" min="1400" max="2100"></label>
         <label>Category<select name="categoryId" required><option value="">Loading categories…</option></select></label>
         <label>Publisher<select name="publisherId"><option value="">No publisher</option></select></label>
-        <label>Authors<select name="authorIds" multiple size="4"><option value="">Loading authors…</option></select></label>
+        <div class="author-field">
+          <span id="authors-label">Authors</span>
+          <div class="author-picker" role="group" aria-labelledby="authors-label">
+            <input id="author-search" type="search" placeholder="Search authors…" aria-label="Search authors">
+            <div id="author-list" class="author-list"><p class="author-empty">Loading authors…</p></div>
+            <p id="author-status" class="author-status" role="status">No author selected</p>
+          </div>
+        </div>
         <label>Cover image URL<input name="coverImageUrl" type="url" maxlength="500" placeholder="https://…"></label>
         <button type="submit">Save book</button>
       </form>
