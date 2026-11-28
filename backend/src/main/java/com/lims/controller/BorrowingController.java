@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,8 +22,7 @@ public class BorrowingController {
 
     public record IssueRequest(
         @NotNull @Positive Long memberId,
-        @NotNull @Positive Long copyId,
-        @NotNull @Positive Long issuedBy
+        @NotNull @Positive Long copyId
     ) {}
 
     @GetMapping
@@ -31,9 +31,16 @@ public class BorrowingController {
     }
 
     @PostMapping("/issue")
-    public Map<String, Object> issueBook(@Valid @RequestBody IssueRequest request) {
+    public Map<String, Object> issueBook(@Valid @RequestBody IssueRequest request,
+                                         Authentication authentication) {
+        Long authenticatedStaffId = jdbc.queryForObject(
+            "SELECT user_id FROM users WHERE email = ?", Long.class, authentication.getName());
+        if (authenticatedStaffId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.UNAUTHORIZED, "Authenticated staff account not found");
+        }
         return jdbc.queryForMap("CALL sp_issue_book(?, ?, ?)",
-            request.memberId(), request.copyId(), request.issuedBy());
+            request.memberId(), request.copyId(), authenticatedStaffId);
     }
 
     @PostMapping("/{id}/renew")
