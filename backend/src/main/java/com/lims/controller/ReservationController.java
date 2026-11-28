@@ -2,6 +2,7 @@ package com.lims.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -57,37 +58,62 @@ public class ReservationController {
             }
         }
 
+        Integer pending = jdbc.queryForObject("""
+            SELECT COUNT(*) FROM reservations
+            WHERE member_id = ? AND book_id = ? AND reservation_status = 'PENDING'
+            """, Integer.class, memberId, request.bookId());
+        if (pending != null && pending > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "A pending reservation already exists for this member and book");
+        }
+
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbc.update(connection -> {
-            PreparedStatement statement = connection.prepareStatement(
-                "INSERT INTO reservations(member_id, book_id) VALUES (?, ?)",
-                Statement.RETURN_GENERATED_KEYS);
-            statement.setLong(1, memberId);
-            statement.setLong(2, request.bookId());
-            return statement;
-        }, keyHolder);
+        try {
+            jdbc.update(connection -> {
+                PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO reservations(member_id, book_id) VALUES (?, ?)",
+                    Statement.RETURN_GENERATED_KEYS);
+                statement.setLong(1, memberId);
+                statement.setLong(2, request.bookId());
+                return statement;
+            }, keyHolder);
+        } catch (DataIntegrityViolationException ex) {
+            // Backstop for the unique key in migration 005, in case two requests
+            // race past the check above.
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "A pending reservation already exists for this member and book");
+        }
         return Map.of("reservationId", keyHolder.getKey().longValue(), "message", "Reservation created");
+    }
+
+    /** The signed-in member's own reservations, newest first. */
+    @GetMapping("/my")
+    public List<Map<String, Object>> getMyReservations(Authentication authentication) {
+        Long memberId = currentMemberId(authentication);
+        return jdbc.queryForList("""
+            SELECT r.reservation_id, r.member_id, u.full_name AS member_name,
+                   r.book_id, b.title, r.reservation_date, r.reservation_status
+            FROM reservations r
+            JOIN members m ON m.member_id = r.member_id
+            JOIN users u ON u.user_id = m.user_id
+            JOIN books b ON b.book_id = r.book_id
+            WHERE r.member_id = ?
+            ORDER BY r.reservation_date DESC
+            """, memberId);
     }
 
     @PostMapping("/{id}/cancel")
     public Map<String, String> cancelReservation(@PathVariable Long id, Authentication authentication) {
-        boolean staff = isStaff(authentication);
-        int changed;
-        if (staff) {
-            changed = jdbc.update("""
-                UPDATE reservations SET reservation_status = 'CANCELLED'
-                WHERE reservation_id = ? AND reservation_status = 'PENDING'
-                """, id);
-        } else {
+        Map<String, Object> reservation = findReservation(id);
+        if (!isStaff(authentication)) {
             Long memberId = currentMemberId(authentication);
-            changed = jdbc.update("""
-                UPDATE reservations SET reservation_status = 'CANCELLED'
-                WHERE reservation_id = ? AND member_id = ? AND reservation_status = 'PENDING'
-                """, id, memberId);
+            if (!memberId.equals(((Number) reservation.get("member_id")).longValue())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "You can only cancel your own reservations");
+            }
         }
-        if (changed == 0) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pending reservation not found");
-        }
+        requirePending(reservation);
+        jdbc.update("UPDATE reservations SET reservation_status = 'CANCELLED' WHERE reservation_id = ?", id);
         return Map.of("message", "Reservation cancelled");
     }
 
@@ -114,14 +140,28 @@ public class ReservationController {
 
     @PostMapping("/{id}/fulfill")
     public Map<String, String> fulfillReservation(@PathVariable Long id) {
-        int changed = jdbc.update("""
-            UPDATE reservations SET reservation_status = 'FULFILLED'
-            WHERE reservation_id = ? AND reservation_status = 'PENDING'
-            """, id);
-        if (changed == 0) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pending reservation not found");
-        }
+        requirePending(findReservation(id));
+        jdbc.update("UPDATE reservations SET reservation_status = 'FULFILLED' WHERE reservation_id = ?", id);
         return Map.of("message", "Reservation fulfilled");
+    }
+
+    private Map<String, Object> findReservation(Long id) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT member_id, reservation_status FROM reservations WHERE reservation_id = ?", id);
+        if (rows.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found");
+        }
+        return rows.get(0);
+    }
+
+    /** A reservation that exists but is no longer PENDING is a state conflict
+        (409), not "not found" (404) — the old code reported both as 404. */
+    private void requirePending(Map<String, Object> reservation) {
+        String status = String.valueOf(reservation.get("reservation_status"));
+        if (!"PENDING".equals(status)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Reservation is " + status + " and can no longer be changed");
+        }
     }
 
     /** Pending requests older than seven days expire automatically. */
