@@ -18,6 +18,9 @@ A university DBMS project built with MySQL 8, Java 17, Spring Boot, and a respon
 - Authentication: email/password login with BCrypt hashes and role-based
   authorization (ADMIN, LIBRARIAN, MEMBER, STUDENT, TEACHER, GENERAL)
 - Audit log of all write operations
+- AI library assistant: chat box that finds books, shows a member's own loans and fines,
+  recommends books and explains library rules (`POST /api/ai/chat`; needs the
+  `AI_API_KEY` environment variable)
 
 ## Technology
 
@@ -29,7 +32,7 @@ A university DBMS project built with MySQL 8, Java 17, Spring Boot, and a respon
 
 ## Quick start
 
-1. Run the SQL scripts in `database/` in this order: `schema.sql`, `seed.sql`, `views.sql`, `procedures.sql`, `triggers.sql`, then `database/migrations/002_completion_features.sql`. (Migration `001` is only for databases created from the older schema; a fresh `schema.sql` already includes it.)
+1. Run the SQL scripts in `database/` in this order: `schema.sql`, `seed.sql`, `views.sql`, `procedures.sql`, `triggers.sql`, then `database/migrations/002_completion_features.sql` and `database/migrations/003_ai_assistant.sql`. (Migration `001` is only for databases created from the older schema; a fresh `schema.sql` already includes it.)
 2. Configure `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` in your environment.
 3. Run `mvn clean verify` and `mvn spring-boot:run` from `backend/`.
 4. Serve `frontend/` with a local static server on port 5500 and log in with a demo account (see the status doc).
