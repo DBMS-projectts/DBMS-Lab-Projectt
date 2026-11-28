@@ -15,6 +15,9 @@ const currentRole = document.getElementById("current-role");
 const logoutButton = document.getElementById("logout-button");
 const dashboard = document.getElementById("dashboard");
 const statGrid = document.getElementById("stat-grid");
+const authorSearch = document.getElementById("author-search");
+const authorList = document.getElementById("author-list");
+const authorStatus = document.getElementById("author-status");
 
 function authToken() { return sessionStorage.getItem("limsAuth"); }
 function authHeader() {
@@ -100,6 +103,81 @@ async function loadOptions(path, selectName, emptyLabel) {
     formMessage.textContent = "Dropdown loading failed: " + error.message;
   }
 }
+
+/* ---- Authors picker -------------------------------------------------------
+   Authors are a multi-select, so they do NOT use loadOptions(): a fake
+   "No authors" <option> inside the list looks like a real author and can be
+   "selected" by mistake. Instead: a searchable checkbox list, with the
+   selection kept in a Set so searching/filtering never loses chosen authors.
+   An empty selection is valid (BookRequest.authorIds is optional) and is
+   reported by the status line under the list, not by a fake option. */
+let allAuthors = [];
+const selectedAuthorIds = new Set();
+
+function updateAuthorStatus() {
+  const n = selectedAuthorIds.size;
+  authorStatus.textContent = n === 0 ? "No author selected"
+    : n === 1 ? "1 author selected"
+    : n + " authors selected";
+}
+function renderAuthorList() {
+  const term = authorSearch.value.trim().toLowerCase();
+  const visible = allAuthors.filter(author => author.name.toLowerCase().includes(term));
+  authorList.replaceChildren();
+  if (!allAuthors.length) {
+    const note = document.createElement("p");
+    note.className = "author-empty";
+    note.textContent = "No authors yet. Add an author first, then it will appear here.";
+    authorList.append(note);
+    return;
+  }
+  if (!visible.length) {
+    const note = document.createElement("p");
+    note.className = "author-empty";
+    note.textContent = "No authors match your search.";
+    authorList.append(note);
+    return;
+  }
+  visible.forEach(author => {
+    const row = document.createElement("label");
+    row.className = "author-option";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = author.id;
+    box.checked = selectedAuthorIds.has(author.id);
+    box.addEventListener("change", () => {
+      if (box.checked) selectedAuthorIds.add(author.id);
+      else selectedAuthorIds.delete(author.id);
+      updateAuthorStatus();
+    });
+    const name = document.createElement("span");
+    name.textContent = author.name;
+    row.append(box, name);
+    authorList.append(row);
+  });
+}
+async function loadAuthors() {
+  try {
+    const rows = await api("/authors");
+    allAuthors = (Array.isArray(rows) ? rows : [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
+    selectedAuthorIds.clear();
+    authorSearch.value = "";
+    renderAuthorList();
+    updateAuthorStatus();
+  } catch (error) {
+    authorList.replaceChildren();
+    const note = document.createElement("p");
+    note.className = "author-empty";
+    note.textContent = "Could not load authors.";
+    authorList.append(note);
+    formMessage.textContent = "Author loading failed: " + error.message;
+  }
+}
+authorSearch.addEventListener("input", renderAuthorList);
+/* ---- end authors picker -------------------------------------------------- */
+
 async function deleteBook(id) {
   if (!window.confirm("Delete this book? Books with copies or borrowing history cannot be deleted.")) return;
   try { await api("/books/" + encodeURIComponent(id), { method: "DELETE" }); await loadBooks(input.value); }
@@ -155,7 +233,7 @@ async function refreshAll() {
     loadBooks(input.value),
     loadOptions("/categories", "categoryId", "Choose category"),
     loadOptions("/publishers", "publisherId", "No publisher"),
-    loadOptions("/authors", "authorIds", "No authors"),
+    loadAuthors(),
     loadDashboard()
   ]);
 }
@@ -193,11 +271,6 @@ bookForm.addEventListener("submit", async event => {
   event.preventDefault();
   formMessage.textContent = "Saving book…";
   const data = new FormData(bookForm);
-  const authorSelect = bookForm.elements["authorIds"];
-  const authorIds = Array.from(authorSelect.selectedOptions)
-    .map(option => option.value)
-    .filter(value => value !== "")
-    .map(Number);
   const payload = {
     isbn: data.get("isbn").trim(),
     title: data.get("title").trim(),
@@ -205,12 +278,16 @@ bookForm.addEventListener("submit", async event => {
     publicationYear: data.get("publicationYear") ? Number(data.get("publicationYear")) : null,
     categoryId: Number(data.get("categoryId")),
     publisherId: data.get("publisherId") ? Number(data.get("publisherId")) : null,
-    authorIds: authorIds,
+    authorIds: Array.from(selectedAuthorIds),
     coverImageUrl: data.get("coverImageUrl").trim() || null
   };
   try {
     await api("/books", { method: "POST", body: JSON.stringify(payload) });
     bookForm.reset();
+    selectedAuthorIds.clear();
+    authorSearch.value = "";
+    renderAuthorList();
+    updateAuthorStatus();
     formMessage.textContent = "Book added successfully.";
     await loadBooks(input.value);
   } catch (error) { formMessage.textContent = "Could not save book: " + error.message; }
