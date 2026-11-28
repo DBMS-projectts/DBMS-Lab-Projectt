@@ -11,11 +11,35 @@ INSERT INTO member_types(type_name, max_books, borrowing_days, borrowing_months,
 
 INSERT INTO categories(category_name, description) VALUES
 ('Computer Science', 'Computing, software and information technology'),
+('Software Engineering', 'Software design, development, testing and maintenance'),
+('Database Management', 'Database systems, SQL, data modelling and administration'),
+('Artificial Intelligence', 'Artificial intelligence concepts and applications'),
+('Machine Learning', 'Machine learning methods and practical applications'),
+('Web Development', 'Frontend, backend and full-stack web development'),
+('Networking', 'Computer networks and communication systems'),
+('Cyber Security', 'Information security, privacy and ethical hacking'),
 ('Mathematics', 'Pure and applied mathematics'),
-('Literature', 'Fiction, poetry and literary works');
+('Physics', 'Classical and modern physics'),
+('Chemistry', 'General, organic and applied chemistry'),
+('Literature', 'Fiction, poetry and literary works'),
+('History', 'World, regional and cultural history'),
+('Islamic Studies', 'Islamic history, culture and scholarship'),
+('Business Studies', 'Business, management, finance and economics');
 
 INSERT INTO publishers(publisher_name, address) VALUES
-('Sample Academic Press', 'Sample address');
+('Sample Academic Press', 'Sample address'),
+('Pearson', NULL),
+('McGraw Hill', NULL),
+('Oxford University Press', NULL),
+('Cambridge University Press', NULL),
+('Wiley', NULL),
+('Springer Nature', NULL),
+('Packt Publishing', NULL),
+('O''Reilly Media', NULL),
+('Prentice Hall', NULL),
+('CRC Press', NULL),
+('Cengage', NULL),
+('MIT Press', NULL);
 
 INSERT INTO authors(author_name, country) VALUES
 ('Sample Author', 'Bangladesh');
