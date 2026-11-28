@@ -28,8 +28,10 @@ import java.util.Set;
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = {"http://localhost:5500", "http://127.0.0.1:5500"})
 public class AuthController {
-    /** Roles that also hold a library membership. */
-    private static final Set<String> MEMBER_ROLES = Set.of("STUDENT", "TEACHER", "GENERAL", "MEMBER");
+    /** Public registration must never grant staff or administrator privileges. */
+    private static final Set<String> PUBLIC_REGISTRATION_ROLES =
+        Set.of("STUDENT", "TEACHER", "GENERAL", "MEMBER");
+    private static final Set<String> MEMBER_ROLES = PUBLIC_REGISTRATION_ROLES;
 
     private final UserRepository users;
     private final RoleRepository roles;
@@ -56,8 +58,24 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
         }
         String roleName = request.roleName().trim().toUpperCase();
+        if (!PUBLIC_REGISTRATION_ROLES.contains(roleName)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "This role cannot be assigned through public registration");
+        }
         Role role = roles.findByName(roleName)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown role: " + roleName));
+
+        MemberType memberType = null;
+        if (MEMBER_ROLES.contains(roleName)) {
+            if (request.memberTypeName() == null || request.memberTypeName().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "memberTypeName is required for role " + roleName);
+            }
+            String typeName = request.memberTypeName().trim().toUpperCase();
+            memberType = memberTypes.findByTypeName(typeName)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unknown member type: " + typeName));
+        }
 
         User user = new User();
         user.setRole(role);
@@ -69,15 +87,7 @@ public class AuthController {
         user = users.save(user);
 
         Member member = null;
-        if (MEMBER_ROLES.contains(roleName)) {
-            if (request.memberTypeName() == null || request.memberTypeName().isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "memberTypeName is required for role " + roleName);
-            }
-            String typeName = request.memberTypeName().trim().toUpperCase();
-            MemberType memberType = memberTypes.findByTypeName(typeName)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Unknown member type: " + typeName));
+        if (memberType != null) {
             member = new Member();
             member.setUser(user);
             member.setMemberType(memberType);
