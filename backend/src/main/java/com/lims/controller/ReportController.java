@@ -125,16 +125,40 @@ public class ReportController {
             .header(HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=\"" + name + "-report.csv\"")
             .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
-            .body(toCsv(rows));
+            .body(toCsv(name, rows));
     }
 
-    private static String toCsv(List<Map<String, Object>> rows) {
-        if (rows == null || rows.isEmpty()) {
+    /**
+     * Column order of each exportable report. Used when a report has no rows:
+     * the CSV then still carries its header row instead of being a 0-byte file.
+     * Keep in step with the SELECT lists / views above.
+     */
+    private static final Map<String, List<String>> REPORT_COLUMNS = Map.of(
+        "inventory", List.of("book_id", "isbn", "title", "category_name", "total_copies", "available_copies"),
+        "overdue", List.of("borrowing_id", "member_id", "member_name", "member_email", "member_phone",
+            "book_id", "title", "accession_number", "issue_date", "due_date", "days_overdue"),
+        "borrowing-history", List.of("borrowing_id", "member_name", "title", "accession_number",
+            "issue_date", "due_date", "return_date", "renewal_count", "borrowing_status"),
+        "member-activity", List.of("member_id", "member_name", "member_type", "total_borrowings",
+            "active_borrowings", "overdue_borrowings", "total_fines", "unpaid_balance"),
+        "fine-collection", List.of("payment_id", "payment_date", "payment_method", "amount_paid",
+            "fine_id", "member_name", "title"),
+        "most-borrowed", List.of("book_id", "title", "isbn", "borrow_count"),
+        "reservations", List.of("reservation_id", "member_name", "title", "reservation_date", "reservation_status")
+    );
+
+    private static String toCsv(String name, List<Map<String, Object>> rows) {
+        List<String> columns = (rows == null || rows.isEmpty())
+            ? REPORT_COLUMNS.getOrDefault(name, List.of())
+            : List.copyOf(rows.get(0).keySet());
+        if (columns.isEmpty()) {
             return "";
         }
         StringBuilder csv = new StringBuilder();
-        List<String> columns = List.copyOf(rows.get(0).keySet());
         csv.append(String.join(",", columns.stream().map(ReportController::escape).toList())).append("\r\n");
+        if (rows == null) {
+            return csv.toString();
+        }
         for (Map<String, Object> row : rows) {
             for (int i = 0; i < columns.size(); i++) {
                 if (i > 0) {
