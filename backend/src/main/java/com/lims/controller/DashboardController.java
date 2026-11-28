@@ -35,7 +35,9 @@ public class DashboardController {
         stats.put("pendingReservations", count(
             "SELECT COUNT(*) FROM reservations WHERE reservation_status = 'PENDING'"));
         stats.put("totalFineCollected", jdbc.queryForObject(
-            "SELECT COALESCE(SUM(amount_paid), 0) FROM payments", Object.class));
+            "SELECT COALESCE(SUM(amount_paid), 0) FROM payments WHERE payment_method <> 'WAIVER'", Object.class));
+        stats.put("totalFineWaived", jdbc.queryForObject(
+            "SELECT COALESCE(SUM(amount_paid), 0) FROM payments WHERE payment_method = 'WAIVER'", Object.class));
         stats.put("totalFineOutstanding", jdbc.queryForObject("""
             SELECT COALESCE(SUM(balance_due), 0) FROM vw_fine_balances
             WHERE fine_status IN ('UNPAID','PARTIALLY_PAID')
