@@ -42,7 +42,7 @@ fines, dashboard, reports and role-based login are all implemented.
 
 | Method | Endpoint | Access | Purpose |
 |---|---|---|---|
-| POST | /api/auth/register | Public | Register a user; member roles also create a membership |
+| POST | /api/auth/register | Public | Register a STUDENT, TEACHER, GENERAL or MEMBER; staff roles cannot be self-assigned |
 | GET | /api/auth/me | Logged in | Current user profile (incl. membership) |
 | PUT | /api/auth/profile | Logged in | Update own name and phone |
 | POST | /api/auth/change-password | Logged in | Change own password |
@@ -99,22 +99,22 @@ balance; the membership then becomes EXPIRED and the login is deactivated.
 
 | Method | Endpoint | Access | Purpose |
 |---|---|---|---|
-| GET | /api/borrowings | Logged in | Active borrowing list |
+| GET | /api/borrowings | ADMIN, LIBRARIAN | Active borrowing list |
 | POST | /api/borrowings/issue | ADMIN, LIBRARIAN | Issue a copy (stored procedure) |
 | POST | /api/borrowings/{id}/renew | ADMIN, LIBRARIAN | Renew a loan (max 2 renewals) |
 | POST | /api/borrowings/{id}/return | ADMIN, LIBRARIAN | Return a book |
-| GET | /api/reservations | Logged in | List reservations |
+| GET | /api/reservations | ADMIN, LIBRARIAN | List all reservations |
 | POST | /api/reservations | Logged in | Create a reservation |
 | POST | /api/reservations/{id}/cancel | Logged in | Cancel a pending reservation |
-| GET | /api/reservations/queue/{bookId} | Logged in | Waiting queue with positions |
-| POST | /api/reservations/{id}/fulfill | Logged in | Mark a reservation fulfilled |
-| POST | /api/reservations/expire | Logged in | Expire pending requests older than 7 days |
-| GET | /api/reservations/ready | Logged in | Pending reservations whose book is available |
-| GET | /api/fines | Logged in | Fine balances |
+| GET | /api/reservations/queue/{bookId} | ADMIN, LIBRARIAN | Waiting queue with positions |
+| POST | /api/reservations/{id}/fulfill | ADMIN, LIBRARIAN | Mark a reservation fulfilled |
+| POST | /api/reservations/expire | ADMIN, LIBRARIAN | Expire pending requests older than 7 days |
+| GET | /api/reservations/ready | ADMIN, LIBRARIAN | Pending reservations whose book is available |
+| GET | /api/fines | ADMIN, LIBRARIAN | All fine balances |
 | POST | /api/fines/{id}/payments | ADMIN, LIBRARIAN | Record a fine payment (stored procedure) |
 | POST | /api/fines/{id}/waive | ADMIN, LIBRARIAN | Waive a fine fully or partly |
-| GET | /api/fines/{id}/payments | Logged in | Payment history of a fine |
-| GET | /api/fines/member/{memberId} | Logged in | A member's fines and total outstanding |
+| GET | /api/fines/{id}/payments | ADMIN, LIBRARIAN | Payment history of a fine |
+| GET | /api/fines/member/{memberId} | ADMIN, LIBRARIAN | A member's fines and total outstanding |
 
 Fine waivers are recorded as payment rows with method `WAIVER`, so balances
 remain auditable. A fine settled with waiver help ends in status `WAIVED`;
@@ -147,9 +147,11 @@ a partially waived fine stays `PARTIALLY_PAID`.
 - The account role becomes a Spring Security authority `ROLE_<role>`:
   `ADMIN`, `LIBRARIAN`, `MEMBER`, `STUDENT`, `TEACHER`, `GENERAL`.
 - A deactivated account (`users.is_active = 0`) cannot log in.
-- Read endpoints require any logged-in user; write operations on the
-  catalogue, members, circulation, fines, dashboard and reports require
-  `ADMIN` or `LIBRARIAN`; the audit log requires `ADMIN`.
+- Catalogue reads require login. Global member, borrowing, fine and reservation
+  data are restricted to `ADMIN` or `LIBRARIAN`; members can create and cancel
+  only their own reservations. Reservation fulfilment/expiry and circulation
+  desk operations require staff. Public registration cannot assign staff roles.
+  The audit log requires `ADMIN`.
 - Sessions are stateless; the demo frontend stores the Basic token in
   `sessionStorage` only.
 
@@ -182,6 +184,8 @@ cannot log in until a real BCrypt hash is set.
    - `database/migrations/002_completion_features.sql`
      (required: the backend validates the `books.cover_image_url` column,
      the audit table and the new views at startup)
+   - `database/migrations/003_ai_assistant.sql` (required for the AI chat log
+     table and intent-usage view; check existing objects before re-running)
 3. Set `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` for your local MySQL
    account. Do not commit credentials.
 4. From the `backend/` folder run `mvn clean verify`, then
@@ -196,7 +200,8 @@ cannot log in until a real BCrypt hash is set.
   push to `main`; inspect its run status before treating the build as
   passed.
 - SQL scripts still need to be executed in a clean MySQL 8 database and
-  tested end-to-end with the backend.
+  tested end-to-end with the backend. Migration 003 must not be blindly
+  re-run on a database where its index or view already exists.
 - Bulk import accepts **CSV only** — Excel `.xlsx` files are not parsed
   (save the admission sheet as CSV first). Quoted CSV fields containing
   commas are not supported.
