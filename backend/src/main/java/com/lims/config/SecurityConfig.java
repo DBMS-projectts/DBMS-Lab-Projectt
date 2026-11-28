@@ -17,6 +17,7 @@ import java.util.List;
 
 @Configuration
 public class SecurityConfig {
+    private static final String[] STAFF = { "ADMIN", "LIBRARIAN" };
 
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -45,30 +46,40 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .httpBasic(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
-                // Public registration; everything else needs a login.
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                // Administration (audit log) is admin-only.
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                // A member can read their own borrowing history.
+
+                // Personal history and profile endpoints resolve the authenticated user.
                 .requestMatchers(HttpMethod.GET, "/api/members/my-history").authenticated()
-                // Member management is staff work.
-                .requestMatchers(HttpMethod.GET, "/api/members/**").hasAnyRole("ADMIN", "LIBRARIAN")
-                .requestMatchers(HttpMethod.POST, "/api/members/**").hasAnyRole("ADMIN", "LIBRARIAN")
-                .requestMatchers(HttpMethod.PUT, "/api/members/**").hasAnyRole("ADMIN", "LIBRARIAN")
-                .requestMatchers(HttpMethod.DELETE, "/api/members/**").hasAnyRole("ADMIN", "LIBRARIAN")
-                // Catalogue writes are staff work; reads stay open to any logged-in user.
-                .requestMatchers(HttpMethod.POST, staffWritePaths).hasAnyRole("ADMIN", "LIBRARIAN")
-                .requestMatchers(HttpMethod.PUT, staffWritePaths).hasAnyRole("ADMIN", "LIBRARIAN")
-                .requestMatchers(HttpMethod.DELETE, staffWritePaths).hasAnyRole("ADMIN", "LIBRARIAN")
-                // Circulation desk operations.
+                .requestMatchers(HttpMethod.GET, "/api/auth/me", "/api/auth/profile").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/auth/profile").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/auth/change-password").authenticated()
+
+                // Member directory and member administration are staff-only.
+                .requestMatchers("/api/members/**").hasAnyRole(STAFF)
+
+                // Catalogue writes are staff work; authenticated users may browse.
+                .requestMatchers(HttpMethod.POST, staffWritePaths).hasAnyRole(STAFF)
+                .requestMatchers(HttpMethod.PUT, staffWritePaths).hasAnyRole(STAFF)
+                .requestMatchers(HttpMethod.DELETE, staffWritePaths).hasAnyRole(STAFF)
+
+                // Global circulation, fine, and reservation views expose member data.
+                .requestMatchers(HttpMethod.GET, "/api/borrowings").hasAnyRole(STAFF)
+                .requestMatchers(HttpMethod.GET, "/api/fines").hasAnyRole(STAFF)
+                .requestMatchers(HttpMethod.GET, "/api/fines/*/payments").hasAnyRole(STAFF)
+                .requestMatchers(HttpMethod.GET, "/api/reservations",
+                    "/api/reservations/queue/**", "/api/reservations/ready").hasAnyRole(STAFF)
+
+                // Only staff may issue, renew, return, record payments, or waive fines.
                 .requestMatchers(HttpMethod.POST,
                     "/api/borrowings/issue", "/api/borrowings/*/renew", "/api/borrowings/*/return")
-                    .hasAnyRole("ADMIN", "LIBRARIAN")
-                // Fine desk operations.
+                    .hasAnyRole(STAFF)
                 .requestMatchers(HttpMethod.POST, "/api/fines/*/payments", "/api/fines/*/waive")
-                    .hasAnyRole("ADMIN", "LIBRARIAN")
-                // Dashboard and reports are staff-only.
-                .requestMatchers("/api/dashboard/**", "/api/reports/**").hasAnyRole("ADMIN", "LIBRARIAN")
+                    .hasAnyRole(STAFF)
+                .requestMatchers(HttpMethod.POST,
+                    "/api/reservations/*/fulfill", "/api/reservations/expire").hasAnyRole(STAFF)
+
+                .requestMatchers("/api/dashboard/**", "/api/reports/**").hasAnyRole(STAFF)
                 .anyRequest().authenticated());
         return http.build();
     }
